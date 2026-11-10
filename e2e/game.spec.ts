@@ -120,6 +120,87 @@ function createBoardForBestScoreTest(score: number, bestScore: number) {
   return board;
 }
 
+// Helper to create a full board with ONE horizontal merge available
+function createFullBoardWithHorizontalMerge() {
+  const board = createEmptyBoard();
+  // Create a board full of tiles with exactly one horizontal merge pair
+  // Using alternating pattern but with one pair of adjacent equal values
+  const values = [
+    [2, 4, 8, 16],
+    [32, 32, 64, 128], // Horizontal merge at (0,1) and (1,1) - both 32
+    [256, 512, 1024, 2048],
+    [4, 8, 16, 32],
+  ];
+  for (let y = 0; y < 4; y++) {
+    for (let x = 0; x < 4; x++) {
+      board[y][x] = createTile(values[y][x], x, y);
+    }
+  }
+  return board;
+}
+
+// Helper to create a full board with ONE vertical merge available
+function createFullBoardWithVerticalMerge() {
+  const board = createEmptyBoard();
+  // Create a board full of tiles with exactly one vertical merge pair
+  const values = [
+    [2, 4, 8, 16],
+    [32, 64, 128, 256],
+    [32, 512, 1024, 2048], // Vertical merge at (0,0) and (0,1) - both 32
+    [512, 1024, 2048, 4096],
+  ];
+  for (let y = 0; y < 4; y++) {
+    for (let x = 0; x < 4; x++) {
+      board[y][x] = createTile(values[y][x], x, y);
+    }
+  }
+  return board;
+}
+
+// Helper to create a board with empty cells (not full)
+function createBoardWithEmptyCells() {
+  const board = createEmptyBoard();
+  // Place a few tiles leaving most cells empty
+  board[0][0] = createTile(2, 0, 0);
+  board[0][1] = createTile(4, 0, 1);
+  board[1][0] = createTile(8, 1, 0);
+  board[1][1] = createTile(16, 1, 1);
+  return board;
+}
+
+// Helper to create a board that is one move away from game over
+// After this move, the board will be full with no merges
+function createBoardOneMoveFromGameOver() {
+  const board = createEmptyBoard();
+  // Set up a board where one valid move will result in game over
+  // Board has 15 tiles with one empty cell at (0, 0)
+  // Moving UP will cause all tiles in column 0 to slide up, filling the empty cell
+  // Then a new tile will spawn in the newly empty cell at the bottom
+  // Result: full board with all unique values = game over
+
+  // Column 0: empty at top, then values that will slide up
+  board[0][0] = null; // Empty cell at top
+  board[1][0] = createTile(2, 0, 1);
+  board[2][0] = createTile(4, 0, 2);
+  board[3][0] = createTile(8, 0, 3);
+
+  // Fill rest of board with unique values so no merges possible
+  board[0][1] = createTile(16, 1, 0);
+  board[0][2] = createTile(32, 2, 0);
+  board[0][3] = createTile(64, 3, 0);
+  board[1][1] = createTile(128, 1, 1);
+  board[1][2] = createTile(256, 2, 1);
+  board[1][3] = createTile(512, 3, 1);
+  board[2][1] = createTile(1024, 1, 2);
+  board[2][2] = createTile(2048, 2, 2);
+  board[2][3] = createTile(4096, 3, 2);
+  board[3][1] = createTile(8192, 1, 3);
+  board[3][2] = createTile(16384, 2, 3);
+  board[3][3] = createTile(32768, 3, 3);
+
+  return board;
+}
+
 // Helper to get score from header
 const getScore = async (page: any) => {
   const scoreValue = page.locator('span:text-is("SCORE")').first().locator('xpath=following-sibling::span[1]');
@@ -414,6 +495,100 @@ test.describe('2048 Game - Complete QA', () => {
 
       // Game over modal should NOT appear
       await expect(page.locator('text=Game Over')).not.toBeVisible({ timeout: 1000 });
+    });
+
+    test('full board with one horizontal merge does not trigger game over', async ({ page }) => {
+      // Set up a full board with exactly one horizontal merge available
+      const board = createFullBoardWithHorizontalMerge();
+      await page.evaluate((board) => {
+        (window as any).gameEngine.setTestBoard(board, 500, 1000, false, 5, 3);
+      }, board);
+
+      // Wait for UI to update
+      await page.waitForTimeout(300);
+
+      // Check that game over is NOT detected (horizontal merge exists)
+      const isGameOver = await page.evaluate(() => {
+        return (window as any).gameEngine.getState().isGameOver;
+      });
+      expect(isGameOver).toBe(false);
+
+      // Game over modal should NOT appear
+      await expect(page.locator('text=Game Over')).not.toBeVisible({ timeout: 1000 });
+    });
+
+    test('full board with one vertical merge does not trigger game over', async ({ page }) => {
+      // Set up a full board with exactly one vertical merge available
+      const board = createFullBoardWithVerticalMerge();
+      await page.evaluate((board) => {
+        (window as any).gameEngine.setTestBoard(board, 500, 1000, false, 5, 3);
+      }, board);
+
+      // Wait for UI to update
+      await page.waitForTimeout(300);
+
+      // Check that game over is NOT detected (vertical merge exists)
+      const isGameOver = await page.evaluate(() => {
+        return (window as any).gameEngine.getState().isGameOver;
+      });
+      expect(isGameOver).toBe(false);
+
+      // Game over modal should NOT appear
+      await expect(page.locator('text=Game Over')).not.toBeVisible({ timeout: 1000 });
+    });
+
+    test('board with empty cells does not trigger game over', async ({ page }) => {
+      // Set up a board with empty cells (not full)
+      const board = createBoardWithEmptyCells();
+      await page.evaluate((board) => {
+        (window as any).gameEngine.setTestBoard(board, 100, 500, false, 2, 1, 16);
+      }, board);
+
+      // Wait for UI to update
+      await page.waitForTimeout(300);
+
+      // Check that game over is NOT detected (empty cells exist)
+      const isGameOver = await page.evaluate(() => {
+        return (window as any).gameEngine.getState().isGameOver;
+      });
+      expect(isGameOver).toBe(false);
+
+      // Game over modal should NOT appear
+      await expect(page.locator('text=Game Over')).not.toBeVisible({ timeout: 1000 });
+    });
+
+    test('game over appears after the final possible move', async ({ page }) => {
+      // Set up a board that is one move away from game over
+      const board = createBoardOneMoveFromGameOver();
+      await page.evaluate((board) => {
+        (window as any).gameEngine.setTestBoard(board, 10000, 10000, false, 14, 7, 32768, false);
+        // Use a seed that will place the new tile in the only empty spot
+        (window as any).gameEngine.setTestRandom(12345);
+      }, board);
+
+      // Wait for UI to update
+      await page.waitForTimeout(300);
+
+      // Verify game is NOT over yet (there's an empty cell)
+      let isGameOver = await page.evaluate(() => {
+        return (window as any).gameEngine.getState().isGameOver;
+      });
+      expect(isGameOver).toBe(false);
+
+      // Make a move UP - this will slide column 0 tiles up, filling the empty cell at (0,0)
+      // Then a new tile spawns at the newly empty cell (3,0)
+      // Result: full board with all unique values = game over
+      await page.keyboard.press('ArrowUp');
+      await page.waitForTimeout(300);
+
+      // Now game over should be detected
+      isGameOver = await page.evaluate(() => {
+        return (window as any).gameEngine.getState().isGameOver;
+      });
+      expect(isGameOver).toBe(true);
+
+      // Game over modal should appear
+      await expect(page.locator('text=Game Over')).toBeVisible({ timeout: 2000 });
     });
 
     test('2048 tile triggers victory', async ({ page }) => {

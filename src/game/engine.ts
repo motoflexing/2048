@@ -263,6 +263,9 @@ export class GameEngine {
     // Add new random tile
     const newBoard = addRandomTile(result.board, this.random);
 
+    // Check game over AFTER the new tile is added (critical fix)
+    const isGameOver = checkGameOver(newBoard);
+
     this.state = {
       ...this.state,
       board: newBoard,
@@ -272,7 +275,7 @@ export class GameEngine {
       highestTile: Math.max(this.state.highestTile, result.highestTile),
       hasWon: this.state.hasWon || result.hasWon,
       isWon: result.hasWon && !this.state.hasWon,
-      isGameOver: result.isGameOver,
+      isGameOver,
       previousState: previousGameState,
       canUndo: true,
     };
