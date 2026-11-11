@@ -55,18 +55,28 @@ function App() {
   }, [settings.soundEnabled, settings.hapticEnabled]);
 
   useEffect(() => {
-    if (state.isGameOver && !showGameOver) {
-      setShowGameOver(true);
-      if (settings.soundEnabled) soundManager.play('gameover');
-      if (settings.hapticEnabled) hapticsManager.trigger('gameover');
+    if (state.isGameOver) {
+      if (!showGameOver) {
+        setShowGameOver(true);
+        if (settings.soundEnabled) soundManager.play('gameover');
+        if (settings.hapticEnabled) hapticsManager.trigger('gameover');
+      }
+    } else if (showGameOver) {
+      // Game is no longer over (e.g., new game started) - close the modal
+      setShowGameOver(false);
     }
   }, [state.isGameOver, showGameOver, settings.soundEnabled, settings.hapticEnabled]);
 
   useEffect(() => {
-    if (state.isWon && !showVictory) {
-      setShowVictory(true);
-      if (settings.soundEnabled) soundManager.play('win');
-      if (settings.hapticEnabled) hapticsManager.trigger('win');
+    if (state.isWon) {
+      if (!showVictory) {
+        setShowVictory(true);
+        if (settings.soundEnabled) soundManager.play('win');
+        if (settings.hapticEnabled) hapticsManager.trigger('win');
+      }
+    } else if (showVictory) {
+      // Victory state cleared (e.g., new game started or continue clicked) - close the modal
+      setShowVictory(false);
     }
   }, [state.isWon, showVictory, settings.soundEnabled, settings.hapticEnabled]);
 
@@ -114,9 +124,13 @@ function App() {
     if (state.moveCount > 0 || state.score > 0) {
       if (confirm('Start a new game? Current progress will be lost.')) {
         newGame();
+        setShowGameOver(false);
+        setShowVictory(false);
       }
     } else {
       newGame();
+      setShowGameOver(false);
+      setShowVictory(false);
     }
     if (settings.soundEnabled) soundManager.play('move');
   }, [newGame, state.moveCount, state.score, settings.soundEnabled, initAudio]);
@@ -124,6 +138,8 @@ function App() {
   const handleRestart = useCallback(() => {
     initAudio();
     newGame();
+    setShowGameOver(false);
+    setShowVictory(false);
     if (settings.soundEnabled) soundManager.play('move');
   }, [newGame, settings.soundEnabled, initAudio]);
 

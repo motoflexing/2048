@@ -1098,6 +1098,175 @@ test.describe('2048 Game - Complete QA', () => {
     test('victory modal appears on 2048', async ({ page }) => {
       // Tested in Gameplay Validation section
     });
+
+    // New tests for the Game Over modal fix
+    test('clicking New Game closes Game Over modal and starts fresh game', async ({ page }) => {
+      // Set up a full board with no merges to trigger game over
+      const board = createFullBoardNoMerges();
+      await page.evaluate((board) => {
+        (window as any).gameEngine.setTestBoard(board, 1000, 2000, false, 10, 5);
+      }, board);
+
+      // Wait for UI to update
+      await page.waitForTimeout(300);
+
+      // Verify game over modal appears
+      await expect(page.locator('text=Game Over')).toBeVisible({ timeout: 2000 });
+
+      // Handle confirm dialog for "New Game" button
+      page.on('dialog', dialog => dialog.accept());
+
+      // Click "New Game" button in the modal (use more specific selector to avoid the Start New Game button in controls)
+      await page.locator('.fixed button:has-text("New Game")').click();
+      await page.waitForTimeout(300);
+
+      // Verify modal is closed
+      await expect(page.locator('text=Game Over')).not.toBeVisible({ timeout: 1000 });
+
+      // Verify fresh playable board is displayed (2 tiles)
+      const tiles = await getTileCount(page);
+      expect(tiles).toBe(2);
+
+      // Verify game is playable by making a move
+      await page.keyboard.press('ArrowLeft');
+      await page.waitForTimeout(200);
+      const tilesAfterMove = await getTileCount(page);
+      expect(tilesAfterMove).toBeGreaterThanOrEqual(2);
+    });
+
+    test('clicking Play Again closes Game Over modal and starts fresh game', async ({ page }) => {
+      // Set up a full board with no merges to trigger game over
+      const board = createFullBoardNoMerges();
+      await page.evaluate((board) => {
+        (window as any).gameEngine.setTestBoard(board, 1000, 2000, false, 10, 5);
+      }, board);
+
+      // Wait for UI to update
+      await page.waitForTimeout(300);
+
+      // Verify game over modal appears
+      await expect(page.locator('text=Game Over')).toBeVisible({ timeout: 2000 });
+
+      // Click "Play Again" button in the modal
+      await page.locator('button:has-text("Play Again")').click();
+      await page.waitForTimeout(300);
+
+      // Verify modal is closed
+      await expect(page.locator('text=Game Over')).not.toBeVisible({ timeout: 1000 });
+
+      // Verify fresh playable board is displayed (2 tiles)
+      const tiles = await getTileCount(page);
+      expect(tiles).toBe(2);
+
+      // Verify game is playable by making a move
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(200);
+      const tilesAfterMove = await getTileCount(page);
+      expect(tilesAfterMove).toBeGreaterThanOrEqual(2);
+    });
+
+    test('repeated Game Over -> New Game cycles work correctly', async ({ page }) => {
+      // Repeat the cycle 3 times to ensure no regressions
+      for (let i = 0; i < 3; i++) {
+        // Set up a full board with no merges to trigger game over
+        const board = createFullBoardNoMerges();
+        await page.evaluate((board) => {
+          (window as any).gameEngine.setTestBoard(board, 1000, 2000, false, 10, 5);
+        }, board);
+
+        // Wait for UI to update
+        await page.waitForTimeout(300);
+
+        // Verify game over modal appears
+        await expect(page.locator('text=Game Over')).toBeVisible({ timeout: 2000 });
+
+        // Handle confirm dialog for "New Game" button (use once to avoid accumulating listeners)
+        page.once('dialog', dialog => dialog.accept());
+
+        // Click "New Game" button in the modal (use more specific selector to avoid the Start New Game button in controls)
+        await page.locator('.fixed button:has-text("New Game")').click();
+        await page.waitForTimeout(300);
+
+        // Verify modal is closed
+        await expect(page.locator('text=Game Over')).not.toBeVisible({ timeout: 1000 });
+
+        // Verify fresh playable board
+        const tiles = await getTileCount(page);
+        expect(tiles).toBe(2);
+
+        // Make a move to ensure game is playable
+        await page.keyboard.press('ArrowLeft');
+        await page.waitForTimeout(200);
+      }
+    });
+
+    test('clicking New Game closes Victory modal and starts fresh game', async ({ page }) => {
+      // Set up a board with 2048 tile to trigger victory
+      const board = createBoardWith2048();
+      await page.evaluate((board) => {
+        (window as any).gameEngine.setTestBoard(board, 2000, 2000, true, 15, 8, 2048);
+      }, board);
+
+      // Wait for UI to update
+      await page.waitForTimeout(300);
+
+      // Verify victory modal appears
+      await expect(page.locator('text=You Win!')).toBeVisible({ timeout: 2000 });
+
+      // Handle confirm dialog for "New Game" button
+      page.on('dialog', dialog => dialog.accept());
+
+      // Click "New Game" button in the victory modal (use more specific selector to avoid the Start New Game button in controls)
+      await page.locator('.fixed button:has-text("New Game")').click();
+      await page.waitForTimeout(300);
+
+      // Verify victory modal is closed
+      await expect(page.locator('text=You Win!')).not.toBeVisible({ timeout: 1000 });
+
+      // Verify fresh playable board is displayed (2 tiles)
+      const tiles = await getTileCount(page);
+      expect(tiles).toBe(2);
+
+      // Verify game is playable
+      await page.keyboard.press('ArrowLeft');
+      await page.waitForTimeout(200);
+      const tilesAfterMove = await getTileCount(page);
+      expect(tilesAfterMove).toBeGreaterThanOrEqual(2);
+    });
+
+    test('clicking Continue after victory works correctly', async ({ page }) => {
+      // Set up a board with 2048 tile that can continue
+      const board = createBoardForContinueAfter2048();
+      await page.evaluate((board) => {
+        (window as any).gameEngine.setTestBoard(board, 2000, 2000, true, 15, 8, 2048);
+      }, board);
+
+      // Wait for UI to update
+      await page.waitForTimeout(300);
+
+      // Verify victory modal appears
+      await expect(page.locator('text=You Win!')).toBeVisible({ timeout: 2000 });
+
+      // Click "Continue" button
+      await page.locator('button:has-text("Continue")').click();
+      await page.waitForTimeout(300);
+
+      // Verify victory modal is closed
+      await expect(page.locator('text=You Win!')).not.toBeVisible({ timeout: 1000 });
+
+      // Verify game continues (hasWon should be true, isGameOver false)
+      const state = await page.evaluate(() => {
+        return (window as any).gameEngine.getState();
+      });
+      expect(state.hasWon).toBe(true);
+      expect(state.isGameOver).toBe(false);
+
+      // Make a move to ensure game is playable
+      await page.keyboard.press('ArrowLeft');
+      await page.waitForTimeout(200);
+      const tiles = await getTileCount(page);
+      expect(tiles).toBeGreaterThanOrEqual(2);
+    });
   });
 
   test.describe('Console Errors', () => {
